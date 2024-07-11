@@ -15,12 +15,12 @@ I wrote two in [src/examples](src/examples), there will be more I swear.
 
 ## Keywords 
 
-| Keyword      | Usage                                                                                                 | 
-|----------------------------------------------------------------------------------------------------------------------|
+| Keyword      | Usage                                                                                                 |
+|--------------|-------------------------------------------------------------------------------------------------------|
 | `ROUTE`      | Increment data pointer by 1.                                                                          |
 | `102`        | Decrement data pointer by 1.                                                                          |
 | `MARKHAM`    | Increment pointed value by 1. Wraps around to 255 if 0.                                               |
-| `ROAD`       | Decrement pointed value by 1. Wraps around to 0 if 255.                                               | 
+| `ROAD`       | Decrement pointed value by 1. Wraps around to 0 if 255.                                               |
 | `SOUTHBOUND` | Write the value at the data pointer as a character to the output file.                                |
 | `TOWARDS`    | Read a character from the input file into the value at the data pointer.                              |
 | `WARDEN`     | If the value at the data pointer is zero, continue execution after the matching `WARDEN` keyword.     |
