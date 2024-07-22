@@ -5,19 +5,17 @@ The 102 Markham Road bus made turing complete.
 
 ## Interpreter Build + Usage
 
-Interpreter source: [src/main.rs](src/main.rs)
+Interpreter source: [interpreter.c](interpreter.c)
 
-Download [Rust](https://www.rust-lang.org/tools/install).
-Compile with `rustc main.rs` and execute with a valid buslang program.
-
-I wrote two in [src/examples](src/examples), and there will be more.
+Compile and run executable with a valid `.bus` file.
 
 ## JIT Compiler Build + Usage
 
-I have only tested the JIT on a Linux machine. JIT only
-works on machines with X86-64 architecture. 
+JIT only works on machines with x86-64 architecture. 
 
-Run `make` to build the executable and execute with a valid buslang
+If you are using ARM, use the interpreter (for now).
+
+Run `make` to build the executable and execute with a valid `.bus`
 program.
 
 ## Keywords 
@@ -38,7 +36,7 @@ Both the JIT and Interpreter work the same way as follows:
 
 ## Examples
 
-I wrote two in [src/examples](src/examples), and there will be more
+I wrote three in [example](examples), and there will be more
 if I decide to not be a lazy sack of shit and actually write them.
 
 ## Future Additions
@@ -46,8 +44,8 @@ if I decide to not be a lazy sack of shit and actually write them.
 I'm getting around to building a version that's actually good,
 with some additional features on top. Here's what version 2 will look like:
 
-- A JIT compiler written in pure C
-- Bus code conversion to C and vice versa
+- ARM architecture support for JIT
+- Buslang to C/C to Buslang
 - YT video explaining how it works and steps I took to creating it
 - Lambda calculus 
-- Idk send a pr and if its cool I'll prob add it
+- Idk send a pr and if I like it I'll probably add it
