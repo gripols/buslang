@@ -1,0 +1,39 @@
+GOSHA POLIN
+2024-07-15
+Lambda Calculus Implemented into Buslang
+---------------------
+Features of lambda calculus are as follows:
+
+Variables   - Can be letters, words, or numbers
+Abstraction - Function definitions, which can use variables as
+parameters
+Application - Function calls, how functions are applied to arguments
+---------------------
+Language Semantics:
+
+"ROUTE"		- Increment data pointer by 1.
+"102"		- Decrement data pointer by 1.
+"MARKHAM"	- Increment pointed value by 1. So if it's 255, it becomes 0.
+"ROAD"		- Decrement pointed value by 1. So if it's 0, it becomes 255.
+"SOUTHBOUND"	- Write the value pointed by data pointer as char. to output.
+"TOWARDS"	- Read char. from input file into value pointed by data pointer.
+"WARDEN"	- If the value pointed to by the data pointer is 0, continue
+                  execution of the program after the matching 'STATION' keyword.
+"STATION"	- If the value pointed to by the data pointer isn't 0, continue
+		  execution of the program after the matching 'WARDEN' keyword.
+---------------------
+Whitespace Semantics:
+
+'\t'		- Horizontal Tab
+'\n' 		- New Line
+'\r'		- Carriage Return
+' '             - Space
+---------------------
+Lambda Calculus Semantics:
+
+"" 	        - Indicates the definition of a Function
+"" 	        - Indicates the end of a parameter list
+"" 	        - Defines the end of a function definition
+"" 	        - Used to assign functions to variables
+";" 	        - Defines a comment
+""  	        - Used to disambiguate variables in function application
