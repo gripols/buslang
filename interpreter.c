@@ -61,8 +61,7 @@ void read_from_input(Interpreter *interp)
 
 void debug_handler(Interpreter *interp)
 {
-	size_t data_pointer_addr =
-		(size_t)&interp->src + interp->data_pointer;
+	size_t data_pointer_addr = (size_t)&interp->src + interp->data_pointer;
 	size_t memory_addr = (size_t)&interp->mem + interp->data_pointer;
 	unsigned char memory_value = interp->mem[interp->data_pointer];
 
@@ -97,8 +96,8 @@ void execute(Interpreter *interp)
 				size_t count = 1;
 				while (count > 0) {
 					i++;
-					if (strcmp(interp->src[i],
-						   "WARDEN") == 0)
+					if (strcmp(interp->src[i], "WARDEN") ==
+					    0)
 						count++;
 					else if (strcmp(interp->src[i],
 							"STATION") == 0)
@@ -110,8 +109,8 @@ void execute(Interpreter *interp)
 				size_t count = 1;
 				while (count > 0) {
 					i--;
-					if (strcmp(interp->src[i],
-						   "STATION") == 0)
+					if (strcmp(interp->src[i], "STATION") ==
+					    0)
 						count++;
 					else if (strcmp(interp->src[i],
 							"WARDEN") == 0)
