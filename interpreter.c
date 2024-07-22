@@ -8,19 +8,20 @@
 #define MEMORY_SIZE 65536
 
 typedef struct {
-	unsigned char memory[MEMORY_SIZE];
+	unsigned char mem[MEMORY_SIZE];
 	size_t data_pointer;
-	char **source_code;
-	size_t source_code_len;
+	char **src;
+	size_t src_len;
+	int src_size;
 } Interpreter;
 
 Interpreter new_interpreter(char **source_code, size_t source_code_len)
 {
 	Interpreter interp;
 	interp.data_pointer = 0;
-	interp.source_code = source_code;
-	interp.source_code_len = source_code_len;
-	memset(interp.memory, 0, MEMORY_SIZE);
+	interp.src = source_code;
+	interp.src_len = source_code_len;
+	memset(interp.mem, 0, MEMORY_SIZE);
 	return interp;
 }
 
@@ -40,30 +41,30 @@ void decrement_data_pointer(Interpreter *interp)
 
 void increment_value(Interpreter *interp)
 {
-	interp->memory[interp->data_pointer]++;
+	interp->mem[interp->data_pointer]++;
 }
 
 void decrement_value(Interpreter *interp)
 {
-	interp->memory[interp->data_pointer]--;
+	interp->mem[interp->data_pointer]--;
 }
 
 void write_to_output(Interpreter *interp)
 {
-	putchar(interp->memory[interp->data_pointer]);
+	putchar(interp->mem[interp->data_pointer]);
 }
 
 void read_from_input(Interpreter *interp)
 {
-	interp->memory[interp->data_pointer] = getchar();
+	interp->mem[interp->data_pointer] = getchar();
 }
 
 void debug_handler(Interpreter *interp)
 {
 	size_t data_pointer_addr =
-		(size_t)&interp->source_code + interp->data_pointer;
-	size_t memory_addr = (size_t)&interp->memory + interp->data_pointer;
-	unsigned char memory_value = interp->memory[interp->data_pointer];
+		(size_t)&interp->src + interp->data_pointer;
+	size_t memory_addr = (size_t)&interp->mem + interp->data_pointer;
+	unsigned char memory_value = interp->mem[interp->data_pointer];
 
 	printf("\x1b[1;34mdebug: \x1b[0mip \x1b[36m=\x1b[0m %zx \x1b[90m(\x1b[0mprogram "
 	       "\x1b[36m+\x1b[0m %zx\x1b[90m)\x1b[0m\x1b[36m;\x1b[0m dp\x1b[36m\x1b[0m "
@@ -78,46 +79,46 @@ void execute(Interpreter *interp)
 {
 	size_t i = 0;
 
-	while (i < interp->source_code_len) {
-		if (strcmp(interp->source_code[i], "ROUTE") == 0)
+	while (i < interp->src_len) {
+		if (strcmp(interp->src[i], "ROUTE") == 0)
 			increment_data_pointer(interp);
-		else if (strcmp(interp->source_code[i], "102") == 0)
+		else if (strcmp(interp->src[i], "102") == 0)
 			decrement_data_pointer(interp);
-		else if (strcmp(interp->source_code[i], "MARKHAM") == 0)
+		else if (strcmp(interp->src[i], "MARKHAM") == 0)
 			increment_value(interp);
-		else if (strcmp(interp->source_code[i], "ROAD") == 0)
+		else if (strcmp(interp->src[i], "ROAD") == 0)
 			decrement_value(interp);
-		else if (strcmp(interp->source_code[i], "SOUTHBOUND") == 0)
+		else if (strcmp(interp->src[i], "SOUTHBOUND") == 0)
 			write_to_output(interp);
-		else if (strcmp(interp->source_code[i], "TOWARDS") == 0)
+		else if (strcmp(interp->src[i], "TOWARDS") == 0)
 			read_from_input(interp);
-		else if (strcmp(interp->source_code[i], "WARDEN") == 0) {
-			if (interp->memory[interp->data_pointer] == 0) {
+		else if (strcmp(interp->src[i], "WARDEN") == 0) {
+			if (interp->mem[interp->data_pointer] == 0) {
 				size_t count = 1;
 				while (count > 0) {
 					i++;
-					if (strcmp(interp->source_code[i],
+					if (strcmp(interp->src[i],
 						   "WARDEN") == 0)
 						count++;
-					else if (strcmp(interp->source_code[i],
+					else if (strcmp(interp->src[i],
 							"STATION") == 0)
 						count--;
 				}
 			}
-		} else if (strcmp(interp->source_code[i], "STATION") == 0) {
-			if (interp->memory[interp->data_pointer] != 0) {
+		} else if (strcmp(interp->src[i], "STATION") == 0) {
+			if (interp->mem[interp->data_pointer] != 0) {
 				size_t count = 1;
 				while (count > 0) {
 					i--;
-					if (strcmp(interp->source_code[i],
+					if (strcmp(interp->src[i],
 						   "STATION") == 0)
 						count++;
-					else if (strcmp(interp->source_code[i],
+					else if (strcmp(interp->src[i],
 							"WARDEN") == 0)
 						count--;
 				}
 			}
-		} else if (strcmp(interp->source_code[i], "PRESTO") == 0) {
+		} else if (strcmp(interp->src[i], "PRESTO") == 0) {
 			debug_handler(interp);
 		} else {
 			fprintf(stderr, "unknown yap detected\n");
@@ -145,11 +146,10 @@ int main(int argc, char *argv[])
 	}
 
 	char source_code[1024]; // Adjust size as needed
-	char *tokens[1024]; // Adjust size as needed
+	char *tokens[1024];
 	size_t token_count = 0;
 
-	while (fgets(source_code, sizeof(source_code), input_file)) {
-		// Remove comments starting with ';'
+	while (fgets(source_code, sizeof(source_code), input_file) != NULL) {
 		char *comment_start = strchr(source_code, ';');
 		if (comment_start)
 			*comment_start = '\0';

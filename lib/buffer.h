@@ -15,7 +15,7 @@ struct bus_buffer {
 
 // Inits given buffer to store executable code.
 // Returns err. occuring in process
-enum bus_error bus_error_init(struct bus_buffer *buffer);
+enum bus_error bus_buffer_init(struct bus_buffer *buffer);
 
 // Write `n` bytes from data at end of buffer. Returns err. occuring
 // in process. Buffer must init. w/ init func.

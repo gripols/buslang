@@ -47,9 +47,8 @@ struct jit_x86_64_comp {
 	struct bus_buffer *dst;
 };
 
-/*
 static enum bus_error jit_x86_64_comp_init(struct jit_x86_64_comp *comp,
-					       FILE *src, struct bus_buffer *dst)
+					   FILE *src, struct bus_buffer *dst)
 {
 	comp->dst = dst;
 	bus_lexer_init(&comp->lexer, src);
@@ -62,9 +61,13 @@ static enum bus_error jit_x86_64_comp_init(struct jit_x86_64_comp *comp,
 	return bus_buffer_init(&comp->loop_stack);
 }
 
-static void jit_x86_64_comp_fini(struct jit_x86_64_comp *comp)
-{
+static void jit_x86_64_comp_fini(struct jit_x86_64_comp *comp) {
 	bus_buffer_finish(&comp->jumps);
 	bus_buffer_finish(&comp->loop_stack);
 }
-*/
+
+static enum bus_error jit_x86_64_em_head(struct bus_buffer *dst) 
+{
+	uint8_t instrs[] = {
+	};
+}
