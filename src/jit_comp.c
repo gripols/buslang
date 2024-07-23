@@ -163,10 +163,44 @@ static enum bus_error jit_x86_64_em_head(struct bus_buffer *dst)
 		BUS_REX_W | BUS_REX_B, MOV_R64_IMM64 + REG_R13,
 		QWORD_BYTES((int64_t)fputc),
 
-		// NOT FINISHED
+		// mov r14, qword ptr [rdi + offsetof (struct bus_context, dp)]
+		BUS_REX_W | BUS_REX_R, MOV_R64_RM64, MODRM_DISP8 |
+		MODRM_REG_R14 | MODRM_RM_RDI,
+		offsetof(struct bus_context, dp),
+
+		// mov r15, qword ptr [rdi + offsetof (struct bus_context, memory)]
+		BUS_REX_W | BUS_REX_R, LEA_R64_M, MODRM_DISP8 |
+		MODRM_REG_R15 | MODRM_RM_RDI,
+		offsetof(struct bus_context, memory)
 	};
+	return bus_buffer_write(dst, instrs); // shut up clang
+}
 
-	return bus_buffer_write(dst, instrs, NULL); // aha this wont work :D
-};
+static enum bus_error jit_x86_64_set_rel8(struct bus_buffer *dst, size_t fro,
+					   size_t to)
+{
+	ssize_t rel8 = (ssize_t) (to - fro);
 
-// NOT FINISHED
+	if (rel8 < INT32_MIN || rel8 > INT8_MAX)
+		return BUS_ERROR_JIT_JUMP;
+
+	*(int8_t *) &dst->data[fro - sizeof(int8_t)] = (int8_t) rel8;
+	return BUS_ERROR_SUCCESS;
+}
+
+static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
+					   size_t to)
+{
+	ssize_t rel32 = (ssize_t) (to - fro);
+
+        if (rel32 < INT32_MIN || rel32 > INT32_MAX)
+		return BUS_ERROR_JIT_JUMP;
+
+	unsigned int *rel32_dst = &dst->data[fro - sizeof(int32_t)];
+	rel32_dst[0] = rel32 & 0xFF;
+	rel32_dst[1] = (rel32 >> 8) & 0xFF;
+	rel32_dst[2] = (rel32 >> 16) & 0xFF;
+	rel32_dst[3] = (rel32 >> 24) & 0xFF;
+	return BUS_ERROR_SUCCESS;
+}
+

@@ -128,7 +128,7 @@ void execute(Interpreter *interp)
 
 void cleanup_interpreter(Interpreter *interp)
 {
-	// Free DMA'd src memory if need
+	// Free DMA'd src memory if needed
 }
 
 int main(int argc, char *argv[])
