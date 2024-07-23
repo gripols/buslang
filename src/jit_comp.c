@@ -164,36 +164,36 @@ static enum bus_error jit_x86_64_em_head(struct bus_buffer *dst)
 		QWORD_BYTES((int64_t)fputc),
 
 		// mov r14, qword ptr [rdi + offsetof (struct bus_context, dp)]
-		BUS_REX_W | BUS_REX_R, MOV_R64_RM64, MODRM_DISP8 |
-		MODRM_REG_R14 | MODRM_RM_RDI,
+		BUS_REX_W | BUS_REX_R, MOV_R64_RM64,
+		MODRM_DISP8 | MODRM_REG_R14 | MODRM_RM_RDI,
 		offsetof(struct bus_context, dp),
 
 		// mov r15, qword ptr [rdi + offsetof (struct bus_context, memory)]
-		BUS_REX_W | BUS_REX_R, LEA_R64_M, MODRM_DISP8 |
-		MODRM_REG_R15 | MODRM_RM_RDI,
+		BUS_REX_W | BUS_REX_R, LEA_R64_M,
+		MODRM_DISP8 | MODRM_REG_R15 | MODRM_RM_RDI,
 		offsetof(struct bus_context, memory)
 	};
-	return bus_buffer_write(dst, instrs); // shut up clang
+	return bus_buffer_write(dst, instrs, 0); // shut up clang
 }
 
 static enum bus_error jit_x86_64_set_rel8(struct bus_buffer *dst, size_t fro,
-					   size_t to)
+					  size_t to)
 {
-	ssize_t rel8 = (ssize_t) (to - fro);
+	size_t rel8 = (size_t)(to - fro);
 
 	if (rel8 < INT32_MIN || rel8 > INT8_MAX)
 		return BUS_ERROR_JIT_JUMP;
 
-	*(int8_t *) &dst->data[fro - sizeof(int8_t)] = (int8_t) rel8;
+	*(int8_t *)&dst->data[fro - sizeof(int8_t)] = (int8_t)rel8;
 	return BUS_ERROR_SUCCESS;
 }
 
 static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 					   size_t to)
 {
-	ssize_t rel32 = (ssize_t) (to - fro);
+	size_t rel32 = (size_t)(to - fro);
 
-        if (rel32 < INT32_MIN || rel32 > INT32_MAX)
+	if (rel32 < INT32_MIN || rel32 > INT32_MAX)
 		return BUS_ERROR_JIT_JUMP;
 
 	unsigned int *rel32_dst = &dst->data[fro - sizeof(int32_t)];
@@ -204,3 +204,52 @@ static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 	return BUS_ERROR_SUCCESS;
 }
 
+static enum bus_error jit_x86_64_em_ret_err_segf(size_t exit,
+						 struct bus_buffer *dst)
+{
+	unsigned int instrs[] = { // mov eax segfault
+				  MOV_R32_IMM32 + REG_EAX,
+				  DWORD_BYTES(BUS_ERROR_SEGFAULT), JMP_REL8, 0
+	};
+
+	enum bus_error error = bus_buffer_write(dst, instrs, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	return jit_x86_64_set_rel8(dst, dst->size, exit);
+}
+
+static enum bus_error jit_ret_err_io(size_t exit, struct bus_buffer *dst)
+{
+	unsigned int instrs[] = { MOV_R32_IMM32 + REG_EAX,
+				  DWORD_BYTES(BUS_ERROR_IO), JMP_REL8, 0 };
+
+	return jit_x86_64_set_rel8(dst, dst->size, exit);
+}
+
+static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
+					       struct bus_buffer *dst)
+{
+	unsigned int ret_err_ferror[] = {
+		// mov rdi qword ptr
+		BUS_REX_W,
+		MOV_R64_RM64,
+		MODRM_DISP8 | MODRM_REG_RDI | MODRM_RM_RBX,
+		offsetof(struct bus_context, in),
+
+		// mov rax ferr
+		BUS_REX_W,
+		MOV_R64_IMM64 + REG_EAX,
+		QWORD_BYTES((int64_t)ferror),
+
+		// call RAX
+		CALL_RM64,
+		MODRM_DIRCT | CALL_RM | MODRM_RM_RAX,
+
+		// cmp eax 0
+		CMP_EAX_IMM32,
+	};
+
+	return jit_x86_64_set_rel8(dst, dst->size, exit);
+}
