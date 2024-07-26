@@ -1,4 +1,4 @@
-#include "../lib/buffer.h"
+#include "../lib/buffer.h" // see if ts will work if i put 0 for size_t n
 #include "../lib/context.h"
 #include "../lib/error.h"
 #include "../lib/lexer.h"
@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #define BUS_TO_BYTES(op2) (((op2) >> 8) & 0xFF), ((op2) & 0xFF)
 
@@ -249,7 +250,435 @@ static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
 
 		// cmp eax 0
 		CMP_EAX_IMM32,
+		DWORD_BYTES(0),
+
+		// mov eax ERR IO
+		MOV_R32_IMM32 + REG_EAX,
+		DWORD_BYTES(BUS_ERROR_IO),
+
+		// offset later
+		BUS_TO_BYTES(JNEREL8),
+		0,
 	};
 
+	enum bus_error error = bus_buffer_write(dst, ret_err_ferror, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	error = jit_x86_64_set_rel8(dst, dst->size, exit);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	unsigned int ret_err_runtime_end_io_file[] = {
+		// mov eax BUS_ERROR_RUNTIME_END
+		MOV_R32_IMM32 + REG_EAX,
+		DWORD_BYTES(BUS_ERROR_RUNTIME_END),
+		// jmp exit
+		JMP_REL8,
+		0,
+	};
+
+	error = bus_buffer_write(dst, ret_err_runtime_end_io_file, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
 	return jit_x86_64_set_rel8(dst, dst->size, exit);
+}
+
+static enum bus_error jit_x86_emit_jmp_targ(enum jit_x86_64_jump_target target,
+					    size_t exit, struct bus_buffer *dst)
+{
+	switch (target) {
+	case BUS_JUMP_ERROR_SEGFAULT:
+		return jit_x86_64_em_ret_err_segf(exit, dst);
+	case BUS_JUMP_ERROR_IO:
+		return jit_ret_err_io(exit, dst);
+	case BUS_JUMP_FGETC_EOFM: // shut the fuck up
+		return jit_x86_64_ham_fgetc_err(exit, dst);
+
+	default:
+		return BUS_ERROR_COMP_INTERNAL;
+	}
+}
+
+static enum bus_error jit_x86_emit_foot(struct bus_buffer *jumps,
+					struct bus_buffer *dst)
+{
+	unsigned int set_err_succ[] = {
+		// xor eax, eax
+		XOR_RM32_R32,
+		MODRM_DIRCT | MODRM_REG_EAX | MODRM_REG_EAX,
+	};
+
+	enum bus_error error = bus_buffer_write(dst, set_err_succ, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	size_t exit = dst->size;
+	unsigned int kill_me[] = {
+		// pop r15
+		BUS_REX_B,
+		POP_R64 + REG_R15,
+
+		// pop r14
+		BUS_REX_B,
+		POP_R64 + REG_R14,
+
+		// pop r13
+		BUS_REX_B,
+		POP_R64 + REG_R13,
+
+		// pop r12
+		BUS_REX_B,
+		POP_R64 + REG_R12,
+
+		// pop rbx
+		POP_R64 + REG_RBX,
+
+		// ret
+		RET_NEAR,
+	};
+
+	error = bus_buffer_write(dst, kill_me, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	size_t jmp_targ_offset[BUS_NUM_JUMP_TARGS] = { 0 };
+	size_t jmp_struct_size = sizeof(struct jit_x86_64_jump);
+
+	for (size_t i = 0; i < jumps->size; i += jmp_struct_size) {
+		struct jit_x86_64_jump *jump =
+			(struct jit_x86_64_jump *)&jumps->data[i];
+
+		if (jmp_targ_offset[jump->to] == 0) {
+			jmp_targ_offset[jump->to] = dst->size;
+			jit_x86_emit_jmp_targ(jump->to, exit, dst);
+		}
+
+		error = jit_x86_64_set_rel32(dst, jump->fro,
+					     jmp_targ_offset[jump->to]);
+
+		if (error != BUS_ERROR_SUCCESS)
+			return error;
+	}
+
+	return BUS_ERROR_SUCCESS;
+}
+
+static enum bus_error jit_x86_em_addp(struct jit_x86_64_comp *comp)
+{
+	struct bus_lexer *lexer = &comp->lexer;
+	enum bus_token_type bus_token_type = comp->token.type;
+
+	uint16_t operand = 1;
+	struct bus_token next_token;
+
+	while ((next_token = bus_lexer_next_token(lexer)).type ==
+	       bus_token_type) {
+		if (operand == UINT16_MAX) {
+			comp->token = next_token;
+			return BUS_ERROR_SEGFAULT;
+		}
+		operand++;
+	}
+
+	uint16_t jccop;
+	uint8_t op;
+	uint8_t modrm_reg;
+	int32_t cmp_bound;
+
+	switch (bus_token_type) {
+	case BUS_TOKEN_ROUTE:
+		jccop = JAEREL32;
+		op = ADD_RM64_IMM32;
+		modrm_reg = ADD_RM_IMM;
+		cmp_bound = CONTEXT_MEMORY - operand;
+		break;
+	case BUS_TOKEN_102:
+		jccop = JBREL32;
+		op = SUB_RM64_IMM32;
+		modrm_reg = SUB_RM_IMM;
+		cmp_bound = CONTEXT_MEMORY - operand;
+		break;
+	default:
+		return BUS_ERROR_COMP_INTERNAL;
+	}
+
+	comp->token = next_token;
+
+	unsigned int bound_check[] = {
+		// mov rax r14
+		BUS_REX_W | BUS_REX_R,
+		MOV_RM64_R64,
+		MODRM_DIRCT | MODRM_REG_R14 | MODRM_RM_RAX,
+		// sub rax r15
+		BUS_REX_W | BUS_REX_R,
+		SUB_RM64_R64,
+		MODRM_DIRCT | MODRM_REG_R15 | MODRM_RM_RAX,
+		// cmp rax cmp bound
+		BUS_REX_W,
+		CMP_RAX_IMM32,
+		DWORD_BYTES(cmp_bound),
+		// ret segf offset ltr
+		BUS_TO_BYTES(jccop),
+		DWORD_BYTES(0),
+	};
+
+	enum bus_error error = bus_buffer_write(comp->dst, bound_check, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	unsigned int instr[] = {
+		BUS_REX_W | BUS_REX_B,
+		op,
+		MODRM_DIRCT | modrm_reg | MODRM_RM_R14,
+		DWORD_BYTES(operand),
+	};
+
+	return bus_buffer_write(comp->dst, instr, 0);
+}
+
+static enum bus_error jit_x86_em_addv(struct jit_x86_64_comp *comp)
+{
+	enum bus_token_type bus_token_type = comp->token.type;
+	struct bus_lexer *lexer = &comp->lexer;
+
+	uint8_t op;
+	uint8_t modrm_reg;
+
+	switch (bus_token_type) {
+	case BUS_TOKEN_MARKHAM:
+		op = ADD_RM8_IMM8;
+		modrm_reg = ADD_RM_IMM;
+		break;
+	case BUS_TOKEN_ROAD:
+		op = SUB_RM8_IMM8;
+		modrm_reg = SUB_RM_IMM;
+		break;
+	default:
+		return BUS_ERROR_COMP_INTERNAL;
+	}
+
+	uint8_t operand = 1;
+	struct bus_token next_token;
+
+	while ((next_token = bus_lexer_next_token(lexer)).type ==
+	       bus_token_type) {
+		operand++;
+	}
+
+	comp->token = next_token;
+
+	if (operand == 0)
+		return BUS_ERROR_SUCCESS;
+
+	uint8_t instr[] = {
+		BUS_REX_B,
+		op,
+		MODRM_DISP0 | modrm_reg | MODRM_RM_R14,
+		operand,
+	};
+	return bus_buffer_write(comp->dst, instr, 0);
+}
+
+static enum bus_error jit_x86_em_write(struct jit_x86_64_comp *comp)
+{
+	uint8_t instrs[] = {
+		BUS_REX_B,
+		BUS_TO_BYTES(MOVZXR32RM8), // what the heck is this var name
+		MODRM_DISP0 | MODRM_REG_EDI | MODRM_RM_R14,
+		// mov rsi qword ptr
+		BUS_REX_W,
+		MOV_R64_RM64,
+		MODRM_DISP8 | MODRM_REG_RSI | MODRM_RM_RBX,
+		offsetof(struct bus_context, out),
+		// call r13
+		BUS_REX_B,
+		CALL_RM64,
+		MODRM_DIRCT | CALL_RM | MODRM_RM_R13,
+		// cmp eax -1
+		CMP_EAX_IMM32,
+		DWORD_BYTES((int32_t)-1),
+		BUS_TO_BYTES(JEREL32),
+		DWORD_BYTES(0),
+	};
+
+	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	struct jit_x86_64_jump jump = {
+		.fro = comp->dst->size,
+		.to = BUS_JUMP_ERROR_IO,
+	};
+
+	return bus_buffer_write(&comp->jumps, &jump, sizeof(jump));
+}
+
+static enum bus_error jit_x86_em_read(struct jit_x86_64_comp *comp)
+{
+	unsigned int call_fgetc[] = {
+		// mov rdi QWORD ptr
+		BUS_REX_W,
+		MOV_R64_RM64,
+		MODRM_DISP8 | MODRM_REG_RDI | MODRM_RM_RBX,
+		offsetof(struct bus_context, in),
+		//call r12
+		BUS_REX_B,
+		CALL_RM64,
+		MODRM_DIRCT | CALL_RM | MODRM_RM_R12,
+		// cmp eax -1
+		CMP_EAX_IMM32,
+		DWORD_BYTES((int32_t)-1),
+		BUS_TO_BYTES(JEREL32),
+		DWORD_BYTES(0),
+	};
+
+	enum bus_error error = BUFFER_WRITE(comp->dst, call_fgetc);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	struct jit_x86_64_jump jmp = {
+		.fro = comp->dst->size,
+		.to = BUS_JUMP_FGETC_EOFM,
+	};
+
+	error = bus_buffer_write(&comp->jumps, &jmp, sizeof(jmp));
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	unsigned int w_ret_char_mem[] = {
+		BUS_REX_B,
+		MOV_RM8_R8,
+		MODRM_DISP0 | REG_AL | MODRM_RM_R14,
+	};
+	return bus_buffer_write(comp->dst, w_ret_char_mem, 0);
+}
+
+static enum bus_error beg_loop(struct jit_x86_64_comp *comp)
+{
+	unsigned int instrs[] = {
+		BUS_REX_B,
+		ADD_RM8_IMM8,
+		MODRM_DISP0 | CMP_RM_IMM | MODRM_RM_R14,
+		0,
+		BUS_TO_BYTES(JNEREL32),
+		DWORD_BYTES(0),
+	};
+
+	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	size_t loop_start = bus_buffer_pop_size(&comp->loop_stack);
+	error = jit_x86_64_set_rel32(comp->dst, comp->dst->size, loop_start);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	return jit_x86_64_set_rel32(comp->dst, loop_start, comp->dst->size);
+}
+
+static enum bus_error end_loop(struct jit_x86_64_comp *comp)
+{
+	if (comp->loop_stack.size == 0)
+		return BUS_ERROR_COMP_UNCLOSED_LOOPS;
+
+	unsigned int instrs[] = {
+		BUS_REX_B,
+		CMP_RM_IMM,
+		MODRM_DISP0 | CMP_RM_IMM | MODRM_RM_R14,
+		0,
+		BUS_TO_BYTES(JNEREL32),
+		DWORD_BYTES(0),
+	};
+
+	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	size_t loop_start = bus_buffer_pop_size(&comp->loop_stack);
+	error = jit_x86_64_set_rel32(comp->dst, comp->dst->size, loop_start);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+
+	return jit_x86_64_set_rel32(comp->dst, loop_start, comp->dst->size);
+}
+
+static enum bus_error jit_x86_emit(struct jit_x86_64_comp *comp)
+{
+
+	enum bus_error error;
+
+	switch (comp->token.type) {
+	case BUS_TOKEN_ROUTE:
+	case BUS_TOKEN_102: return jit_x86_em_addp(comp);
+	case BUS_TOKEN_MARKHAM:
+	case BUS_TOKEN_ROAD: return jit_x86_em_addv(comp);
+	case BUS_TOKEN_SOUTHBOUND: error = jit_x86_em_write(comp); break;
+	case BUS_TOKEN_TOWARDS: error = jit_x86_em_read(comp); break;
+	case BUS_TOKEN_WARDEN: error = beg_loop(comp); break;
+	case BUS_TOKEN_STATION: error = end_loop(comp); break;
+	default: return BUS_ERROR_COMP_INV_TOKEN;
+			}
+	if (error == BUS_ERROR_SUCCESS)
+		comp->token = bus_lexer_next_token(&comp->lexer);
+
+	return error;
+}
+
+enum bus_error bus_compile(
+	FILE *src,
+	struct bus_buffer *dst,
+	struct bus_token *last_token_dst
+	) {
+
+	struct jit_x86_64_comp comp;
+	enum bus_error error = jit_x86_64_comp_init(&comp, src, dst);
+
+	if (error != BUS_ERROR_SUCCESS) {
+		*last_token_dst = comp.token;
+		return error;
+	}
+
+	error = jit_x86_64_em_head(dst);
+
+	if (error != BUS_ERROR_SUCCESS) {
+		*last_token_dst = comp.token;
+		jit_x86_64_comp_fini(&comp);
+		return error;
+	}
+
+	while (comp.token.type != BUS_TOKEN_EOF) {
+		error = jit_x86_emit(&comp);
+
+		if (error != BUS_ERROR_SUCCESS) {
+			*last_token_dst = comp.token;
+			jit_x86_64_comp_fini(&comp);
+			return error;
+		}
+	}
+
+	*last_token_dst = comp.token;
+
+	if (comp.loop_stack.size != 0) {
+		jit_x86_64_comp_fini(&comp);
+		return BUS_ERROR_COMP_UNCLOSED_LOOPS;
+	}
+
+	error = jit_x86_emit_foot(&comp.jumps, dst);
+	jit_x86_64_comp_fini(&comp);
+	return error;	
 }

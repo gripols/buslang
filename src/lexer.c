@@ -21,7 +21,7 @@ static bool token_char(int ch)
 	return !space(ch) && ch != COMMENT_CHARACTER && ch != EOF;
 }
 
-void lexer_init(struct bus_lexer *lexer, FILE *src)
+void bus_lexer_init(struct bus_lexer *lexer, FILE *src)
 {
 	lexer->src = src;
 	lexer->line = 1;

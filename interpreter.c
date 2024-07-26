@@ -59,21 +59,6 @@ void read_from_input(Interpreter *interp)
 	interp->mem[interp->data_pointer] = getchar();
 }
 
-void debug_handler(Interpreter *interp)
-{
-	size_t data_pointer_addr = (size_t)&interp->src + interp->data_pointer;
-	size_t memory_addr = (size_t)&interp->mem + interp->data_pointer;
-	unsigned char memory_value = interp->mem[interp->data_pointer];
-
-	printf("\x1b[1;34mdebug: \x1b[0mip \x1b[36m=\x1b[0m %zx \x1b[90m(\x1b[0mprogram "
-	       "\x1b[36m+\x1b[0m %zx\x1b[90m)\x1b[0m\x1b[36m;\x1b[0m dp\x1b[36m\x1b[0m "
-	       "\x1b[36m=\x1b[0m %zx \x1b[90m(\x1b[0mmemory \x1b[36m+\x1b[0m "
-	       "%zx\x1b[90m)\x1b[0m\x1b[36m;\x1b[0m \x1b[36m*\x1b[0mdp \x1b[36m=\x1b[0m "
-	       "%u\n",
-	       data_pointer_addr, interp->data_pointer, memory_addr,
-	       interp->data_pointer, memory_value);
-}
-
 void execute(Interpreter *interp)
 {
 	size_t i = 0;
@@ -117,8 +102,6 @@ void execute(Interpreter *interp)
 						count--;
 				}
 			}
-		} else if (strcmp(interp->src[i], "PRESTO") == 0) {
-			debug_handler(interp);
 		} else {
 			fprintf(stderr, "unknown yap detected\n");
 		}
