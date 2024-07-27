@@ -7,7 +7,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <time.h>
 
 #define BUS_TO_BYTES(op2) (((op2) >> 8) & 0xFF), ((op2) & 0xFF)
 
@@ -52,12 +51,12 @@ enum {
 	SUB_RM64_IMM32 = 0x81,
 	SUB_RM64_R64 = 0x29,
 	XOR_RM32_R32 = 0x31,
-	JAEREL32 = 0x0F83,
-	JBREL32 = 0x0F82,
-	JEREL32 = 0xF84,
-	JNEREL8 = 0x075,
-	JNEREL32 = 0x0F85,
-	MOVZXR32RM8 = 0x0FB6,
+
+	JAE_REL32 = 0x0F83,
+	JB_REL32 = 0x0F82,
+	JE_REL32 = 0xF84,
+	JNE_REL8 = 0x075,
+	JNE_REL32 = 0x0F85,
 };
 
 // Register IDs
@@ -88,9 +87,12 @@ enum {
 	SUB_RM_IMM = 0x5 << 3,
 	JMP_RM = 0x4 << 3,
 	POP_RM = 0x0 << 3,
-	MOD_REG_AL = REG_AL << 3,
+
+	MODRM_REG_AL = REG_AL << 3,
+
 	MODRM_REG_EAX = REG_EAX << 3,
 	MODRM_REG_EDI = REG_EDI << 3,
+
 	MODRM_REG_RBX = REG_RBX << 3,
 	MODRM_REG_RSI = REG_RSI << 3,
 	MODRM_REG_RDI = REG_RDI << 3,
@@ -98,6 +100,7 @@ enum {
 	MODRM_REG_R15 = REG_R15 << 3,
 };
 
+// ModR/M byte `rm` field values
 enum {
 	MODRM_RM_EAX = REG_EAX,
 	MODRM_RM_RAX = REG_RAX,
@@ -169,30 +172,31 @@ static enum bus_error jit_x86_64_em_head(struct bus_buffer *dst)
 		MODRM_DISP8 | MODRM_REG_R14 | MODRM_RM_RDI,
 		offsetof(struct bus_context, dp),
 
-		// mov r15, qword ptr [rdi + offsetof (struct bus_context, memory)]
+		// mov r15, qword ptr [rdi + offsetof
+		// (struct bus_context, memory)]
 		BUS_REX_W | BUS_REX_R, LEA_R64_M,
 		MODRM_DISP8 | MODRM_REG_R15 | MODRM_RM_RDI,
 		offsetof(struct bus_context, memory)
 	};
-	return bus_buffer_write(dst, instrs, 0); // shut up clang
+	return BUFFER_WRITE(dst, instrs);
 }
 
 static enum bus_error jit_x86_64_set_rel8(struct bus_buffer *dst, size_t fro,
 					  size_t to)
 {
-	size_t rel8 = (size_t)(to - fro);
+	ssize_t rel8 = (ssize_t)(to - fro);
 
-	if (rel8 < INT32_MIN || rel8 > INT8_MAX)
+	if (rel8 < INT8_MIN || rel8 > INT8_MAX)
 		return BUS_ERROR_JIT_JUMP;
 
-	*(int8_t *)&dst->data[fro - sizeof(int8_t)] = (int8_t)rel8;
+	*(int8_t *) &dst->data[fro - sizeof(int8_t)] = (int8_t)rel8;
 	return BUS_ERROR_SUCCESS;
 }
 
 static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 					   size_t to)
 {
-	size_t rel32 = (size_t)(to - fro);
+	ssize_t rel32 = (ssize_t)(to - fro);
 
 	if (rel32 < INT32_MIN || rel32 > INT32_MAX)
 		return BUS_ERROR_JIT_JUMP;
@@ -208,12 +212,12 @@ static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 static enum bus_error jit_x86_64_em_ret_err_segf(size_t exit,
 						 struct bus_buffer *dst)
 {
-	unsigned int instrs[] = { // mov eax segfault
+	uint8_t instrs[] = { // mov eax segfault
 				  MOV_R32_IMM32 + REG_EAX,
 				  DWORD_BYTES(BUS_ERROR_SEGFAULT), JMP_REL8, 0
 	};
 
-	enum bus_error error = bus_buffer_write(dst, instrs, 0);
+	enum bus_error error = BUFFER_WRITE(dst, instrs);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -223,7 +227,7 @@ static enum bus_error jit_x86_64_em_ret_err_segf(size_t exit,
 
 static enum bus_error jit_ret_err_io(size_t exit, struct bus_buffer *dst)
 {
-	unsigned int instrs[] = { MOV_R32_IMM32 + REG_EAX,
+	uint8_t instrs[] = { MOV_R32_IMM32 + REG_EAX,
 				  DWORD_BYTES(BUS_ERROR_IO), JMP_REL8, 0 };
 
 	return jit_x86_64_set_rel8(dst, dst->size, exit);
@@ -232,7 +236,7 @@ static enum bus_error jit_ret_err_io(size_t exit, struct bus_buffer *dst)
 static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
 					       struct bus_buffer *dst)
 {
-	unsigned int ret_err_ferror[] = {
+	uint8_t ret_err_ferror[] = {
 		// mov rdi qword ptr
 		BUS_REX_W,
 		MOV_R64_RM64,
@@ -257,11 +261,11 @@ static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
 		DWORD_BYTES(BUS_ERROR_IO),
 
 		// offset later
-		BUS_TO_BYTES(JNEREL8),
+		BUS_TO_BYTES(JNE_REL8),
 		0,
 	};
 
-	enum bus_error error = bus_buffer_write(dst, ret_err_ferror, 0);
+	enum bus_error error = BUFFER_WRITE(dst, ret_err_ferror);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -271,7 +275,7 @@ static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
-	unsigned int ret_err_runtime_end_io_file[] = {
+	uint8_t ret_err_runtime_end_io_file[] = {
 		// mov eax BUS_ERROR_RUNTIME_END
 		MOV_R32_IMM32 + REG_EAX,
 		DWORD_BYTES(BUS_ERROR_RUNTIME_END),
@@ -280,7 +284,7 @@ static enum bus_error jit_x86_64_ham_fgetc_err(size_t exit,
 		0,
 	};
 
-	error = bus_buffer_write(dst, ret_err_runtime_end_io_file, 0);
+	error = BUFFER_WRITE(dst, ret_err_runtime_end_io_file);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -294,6 +298,7 @@ static enum bus_error jit_x86_emit_jmp_targ(enum jit_x86_64_jump_target target,
 	switch (target) {
 	case BUS_JUMP_ERROR_SEGFAULT:
 		return jit_x86_64_em_ret_err_segf(exit, dst);
+		
 	case BUS_JUMP_ERROR_IO:
 		return jit_ret_err_io(exit, dst);
 	case BUS_JUMP_FGETC_EOFM: // shut the fuck up
@@ -307,19 +312,19 @@ static enum bus_error jit_x86_emit_jmp_targ(enum jit_x86_64_jump_target target,
 static enum bus_error jit_x86_emit_foot(struct bus_buffer *jumps,
 					struct bus_buffer *dst)
 {
-	unsigned int set_err_succ[] = {
+	uint8_t set_err_succ[] = {
 		// xor eax, eax
 		XOR_RM32_R32,
 		MODRM_DIRCT | MODRM_REG_EAX | MODRM_REG_EAX,
 	};
 
-	enum bus_error error = bus_buffer_write(dst, set_err_succ, 0);
+	enum bus_error error = BUFFER_WRITE(dst, set_err_succ);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
 	size_t exit = dst->size;
-	unsigned int kill_me[] = {
+	uint8_t kill_me[] = {
 		// pop r15
 		BUS_REX_B,
 		POP_R64 + REG_R15,
@@ -343,7 +348,7 @@ static enum bus_error jit_x86_emit_foot(struct bus_buffer *jumps,
 		RET_NEAR,
 	};
 
-	error = bus_buffer_write(dst, kill_me, 0);
+	error = BUFFER_WRITE(dst, kill_me);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -394,13 +399,13 @@ static enum bus_error jit_x86_em_addp(struct jit_x86_64_comp *comp)
 
 	switch (bus_token_type) {
 	case BUS_TOKEN_ROUTE:
-		jccop = JAEREL32;
+		jccop = JAE_REL32;
 		op = ADD_RM64_IMM32;
 		modrm_reg = ADD_RM_IMM;
 		cmp_bound = CONTEXT_MEMORY - operand;
 		break;
 	case BUS_TOKEN_102:
-		jccop = JBREL32;
+		jccop = JB_REL32;
 		op = SUB_RM64_IMM32;
 		modrm_reg = SUB_RM_IMM;
 		cmp_bound = CONTEXT_MEMORY - operand;
@@ -411,7 +416,7 @@ static enum bus_error jit_x86_em_addp(struct jit_x86_64_comp *comp)
 
 	comp->token = next_token;
 
-	unsigned int bound_check[] = {
+	uint8_t bound_check[] = {
 		// mov rax r14
 		BUS_REX_W | BUS_REX_R,
 		MOV_RM64_R64,
@@ -429,19 +434,19 @@ static enum bus_error jit_x86_em_addp(struct jit_x86_64_comp *comp)
 		DWORD_BYTES(0),
 	};
 
-	enum bus_error error = bus_buffer_write(comp->dst, bound_check, 0);
+	enum bus_error error = BUFFER_WRITE(comp->dst, bound_check);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
-	unsigned int instr[] = {
+	uint8_t instr[] = {
 		BUS_REX_W | BUS_REX_B,
 		op,
 		MODRM_DIRCT | modrm_reg | MODRM_RM_R14,
 		DWORD_BYTES(operand),
 	};
 
-	return bus_buffer_write(comp->dst, instr, 0);
+	return BUFFER_WRITE(comp->dst, instr);
 }
 
 static enum bus_error jit_x86_em_addv(struct jit_x86_64_comp *comp)
@@ -484,14 +489,14 @@ static enum bus_error jit_x86_em_addv(struct jit_x86_64_comp *comp)
 		MODRM_DISP0 | modrm_reg | MODRM_RM_R14,
 		operand,
 	};
-	return bus_buffer_write(comp->dst, instr, 0);
+	return BUFFER_WRITE(comp->dst, instr);
 }
 
 static enum bus_error jit_x86_em_write(struct jit_x86_64_comp *comp)
 {
 	uint8_t instrs[] = {
 		BUS_REX_B,
-		BUS_TO_BYTES(MOVZXR32RM8), // what the heck is this var name
+		BUS_TO_BYTES(0x0FB6), // what the heck is this var name
 		MODRM_DISP0 | MODRM_REG_EDI | MODRM_RM_R14,
 		// mov rsi qword ptr
 		BUS_REX_W,
@@ -505,11 +510,11 @@ static enum bus_error jit_x86_em_write(struct jit_x86_64_comp *comp)
 		// cmp eax -1
 		CMP_EAX_IMM32,
 		DWORD_BYTES((int32_t)-1),
-		BUS_TO_BYTES(JEREL32),
+		BUS_TO_BYTES(JE_REL32),
 		DWORD_BYTES(0),
 	};
 
-	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+	enum bus_error error = BUFFER_WRITE(comp->dst, instrs);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -524,7 +529,7 @@ static enum bus_error jit_x86_em_write(struct jit_x86_64_comp *comp)
 
 static enum bus_error jit_x86_em_read(struct jit_x86_64_comp *comp)
 {
-	unsigned int call_fgetc[] = {
+	uint8_t call_fgetc[] = {
 		// mov rdi QWORD ptr
 		BUS_REX_W,
 		MOV_R64_RM64,
@@ -537,7 +542,7 @@ static enum bus_error jit_x86_em_read(struct jit_x86_64_comp *comp)
 		// cmp eax -1
 		CMP_EAX_IMM32,
 		DWORD_BYTES((int32_t)-1),
-		BUS_TO_BYTES(JEREL32),
+		BUS_TO_BYTES(JE_REL32),
 		DWORD_BYTES(0),
 	};
 
@@ -556,37 +561,31 @@ static enum bus_error jit_x86_em_read(struct jit_x86_64_comp *comp)
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
-	unsigned int w_ret_char_mem[] = {
+	uint8_t w_ret_char_mem[] = {
 		BUS_REX_B,
 		MOV_RM8_R8,
 		MODRM_DISP0 | REG_AL | MODRM_RM_R14,
 	};
-	return bus_buffer_write(comp->dst, w_ret_char_mem, 0);
+	return BUFFER_WRITE(comp->dst, w_ret_char_mem);
 }
 
 static enum bus_error beg_loop(struct jit_x86_64_comp *comp)
 {
-	unsigned int instrs[] = {
+	uint8_t instrs[] = {
 		BUS_REX_B,
 		ADD_RM8_IMM8,
 		MODRM_DISP0 | CMP_RM_IMM | MODRM_RM_R14,
 		0,
-		BUS_TO_BYTES(JNEREL32),
+		BUS_TO_BYTES(JNE_REL32),
 		DWORD_BYTES(0),
 	};
 
-	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+	enum bus_error error = BUFFER_WRITE(comp->dst, instrs);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
-	size_t loop_start = bus_buffer_pop_size(&comp->loop_stack);
-	error = jit_x86_64_set_rel32(comp->dst, comp->dst->size, loop_start);
-
-	if (error != BUS_ERROR_SUCCESS)
-		return error;
-
-	return jit_x86_64_set_rel32(comp->dst, loop_start, comp->dst->size);
+	return bus_buffer_write_size(&comp->loop_stack, comp->dst->size);
 }
 
 static enum bus_error end_loop(struct jit_x86_64_comp *comp)
@@ -594,21 +593,24 @@ static enum bus_error end_loop(struct jit_x86_64_comp *comp)
 	if (comp->loop_stack.size == 0)
 		return BUS_ERROR_COMP_UNCLOSED_LOOPS;
 
-	unsigned int instrs[] = {
+	uint8_t instrs[] = {
+		// cmp byte ptr [r14] 0
 		BUS_REX_B,
 		CMP_RM_IMM,
 		MODRM_DISP0 | CMP_RM_IMM | MODRM_RM_R14,
 		0,
-		BUS_TO_BYTES(JNEREL32),
+		// jne loop_start
+		BUS_TO_BYTES(JNE_REL32),
 		DWORD_BYTES(0),
 	};
 
-	enum bus_error error = bus_buffer_write(comp->dst, instrs, 0);
+	enum bus_error error = BUFFER_WRITE(comp->dst, instrs);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
 
 	size_t loop_start = bus_buffer_pop_size(&comp->loop_stack);
+	
 	error = jit_x86_64_set_rel32(comp->dst, comp->dst->size, loop_start);
 
 	if (error != BUS_ERROR_SUCCESS)
@@ -619,32 +621,39 @@ static enum bus_error end_loop(struct jit_x86_64_comp *comp)
 
 static enum bus_error jit_x86_emit(struct jit_x86_64_comp *comp)
 {
-
 	enum bus_error error;
 
 	switch (comp->token.type) {
 	case BUS_TOKEN_ROUTE:
-	case BUS_TOKEN_102: return jit_x86_em_addp(comp);
+	case BUS_TOKEN_102:
+		return jit_x86_em_addp(comp);
 	case BUS_TOKEN_MARKHAM:
-	case BUS_TOKEN_ROAD: return jit_x86_em_addv(comp);
-	case BUS_TOKEN_SOUTHBOUND: error = jit_x86_em_write(comp); break;
-	case BUS_TOKEN_TOWARDS: error = jit_x86_em_read(comp); break;
-	case BUS_TOKEN_WARDEN: error = beg_loop(comp); break;
-	case BUS_TOKEN_STATION: error = end_loop(comp); break;
-	default: return BUS_ERROR_COMP_INV_TOKEN;
-			}
+	case BUS_TOKEN_ROAD:
+		return jit_x86_em_addv(comp);
+	case BUS_TOKEN_SOUTHBOUND:
+		error = jit_x86_em_write(comp);
+		break;
+	case BUS_TOKEN_TOWARDS:
+		error = jit_x86_em_read(comp);
+		break;
+	case BUS_TOKEN_WARDEN:
+		error = beg_loop(comp);
+		break;
+	case BUS_TOKEN_STATION:
+		error = end_loop(comp);
+		break;
+	default:
+		return BUS_ERROR_COMP_INV_TOKEN;
+	}
 	if (error == BUS_ERROR_SUCCESS)
 		comp->token = bus_lexer_next_token(&comp->lexer);
 
 	return error;
 }
 
-enum bus_error bus_compile(
-	FILE *src,
-	struct bus_buffer *dst,
-	struct bus_token *last_token_dst
-	) {
-
+enum bus_error bus_compile(FILE *src, struct bus_buffer *dst,
+			   struct bus_token *last_token_dst)
+{
 	struct jit_x86_64_comp comp;
 	enum bus_error error = jit_x86_64_comp_init(&comp, src, dst);
 
@@ -680,5 +689,5 @@ enum bus_error bus_compile(
 
 	error = jit_x86_emit_foot(&comp.jumps, dst);
 	jit_x86_64_comp_fini(&comp);
-	return error;	
+	return error;
 }
