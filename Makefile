@@ -14,7 +14,7 @@ HEADERS = lib/buffer.h lib/context.h lib/error.h lib/jit.h lib/lexer.h lib/targe
 OBJ = $(SRC:.c=.o)
 
 # Executable name
-EXEC = my_program
+EXEC = busl
 
 # Default target
 all: $(EXEC)

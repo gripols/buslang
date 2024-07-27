@@ -1,0 +1,59 @@
+Make output here. Use to debug:
+
+Compiling src/buffer.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/buffer.c -o src/buffer.o
+Compiling src/context.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/context.c -o src/context.o
+
+src/context.c: In function ‘bus_context_init’:
+        src/context.c:7:44: warning: ISO C does not support omitting parameter names in function definitions before C23 [-Wpedantic]
+      7 |                       FILE *in, FILE *out, void (*)(struct bus_context *ctx)) // what the fuck???
+        |                                            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        src/context.c:14:9: warning: ‘memset’ used with length equal to number of elements without multiplication by element size [-Wmemset-elt-size]
+     14 |         memset(ctx->memory, 0, CONTEXT_MEMORY);
+        |         ^~~~~~
+
+Compiling src/error.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/error.c -o src/error.o
+
+Compiling src/jit_comp.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/jit_comp.c -o src/jit_comp.o
+
+        src/jit_comp.c: In function ‘jit_x86_64_set_rel8’:
+        src/jit_comp.c:185:18: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+    185 |         if (rel8 < INT32_MIN || rel8 > INT8_MAX)
+        |                  ^
+
+        src/jit_comp.c: In function ‘jit_x86_64_set_rel32’:
+        src/jit_comp.c:197:19: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+    197 |         if (rel32 < INT32_MIN || rel32 > INT32_MAX)
+        |                   ^
+
+        src/jit_comp.c: In function ‘jit_ret_err_io’:
+        src/jit_comp.c:226:22: warning: unused variable ‘instrs’ [-Wunused-variable]
+    226 |         unsigned int instrs[] = { MOV_R32_IMM32 + REG_EAX,
+        |                      ^~~~~~
+        
+Compiling src/jit_run.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/jit_run.c -o src/jit_run.o
+        In file included from src/jit_run.c:3:
+        src/../lib/jit.h:9:47: warning: ‘struct bus_buffer’ declared inside parameter list will not be visible outside of this definition or declaration
+      9 | enum bus_error bus_comp_jit(FILE *src, struct bus_buffer *dst,
+        |                                               ^~~~~~~~~~
+
+Compiling src/main.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/main.c -o src/main.o
+
+Compiling src/lexer.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/lexer.c -o src/lexer.o
+        src/lexer.c: In function ‘bus_lexer_next_token_type’:
+        src/lexer.c:92:17: warning: this statement may fall through [-Wimplicit-fallthrough=]
+     92 |                 switch (ch) {
+                                ^~~~~~
+        src/lexer.c:107:9: note: here
+    107 |                 case 'S':
+                                ^~~~
+        Compiling src/token.c
+        gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/token.c -o src/token.o
+        Linking my_program
+        gcc src/buffer.o src/context.o src/error.o src/jit_comp.o src/jit_run.o src/main.o src/lexer.o src/token.o -o my_program
