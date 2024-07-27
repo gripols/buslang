@@ -201,7 +201,7 @@ static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 	if (rel32 < INT32_MIN || rel32 > INT32_MAX)
 		return BUS_ERROR_JIT_JUMP;
 
-	unsigned int *rel32_dst = &dst->data[fro - sizeof(int32_t)];
+	uint8_t *rel32_dst = (uint8_t *)&dst->data[fro - sizeof(int32_t)];
 	rel32_dst[0] = rel32 & 0xFF;
 	rel32_dst[1] = (rel32 >> 8) & 0xFF;
 	rel32_dst[2] = (rel32 >> 16) & 0xFF;
@@ -212,12 +212,12 @@ static enum bus_error jit_x86_64_set_rel32(struct bus_buffer *dst, size_t fro,
 static enum bus_error jit_x86_64_em_ret_err_segf(size_t exit,
 						 struct bus_buffer *dst)
 {
-	uint8_t instrs[] = { // mov eax segfault
+	uint8_t instrss[] = { // mov eax segfault
 				  MOV_R32_IMM32 + REG_EAX,
 				  DWORD_BYTES(BUS_ERROR_SEGFAULT), JMP_REL8, 0
 	};
 
-	enum bus_error error = BUFFER_WRITE(dst, instrs);
+	enum bus_error error = BUFFER_WRITE(dst, instrss);
 
 	if (error != BUS_ERROR_SUCCESS)
 		return error;
@@ -227,9 +227,14 @@ static enum bus_error jit_x86_64_em_ret_err_segf(size_t exit,
 
 static enum bus_error jit_ret_err_io(size_t exit, struct bus_buffer *dst)
 {
-	uint8_t instrs[] = { MOV_R32_IMM32 + REG_EAX,
+	uint8_t instros[] = { MOV_R32_IMM32 + REG_EAX,
 				  DWORD_BYTES(BUS_ERROR_IO), JMP_REL8, 0 };
 
+	enum bus_error error = BUFFER_WRITE(dst, instros);
+
+	if (error != BUS_ERROR_SUCCESS)
+		return error;
+	
 	return jit_x86_64_set_rel8(dst, dst->size, exit);
 }
 

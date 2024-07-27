@@ -102,6 +102,9 @@ static enum bus_token_type bus_lexer_next_token_type(struct bus_lexer *lexer,
 			default:
 				return BUS_TOKEN_INVALID;
 			}
+			break;
+			default:
+				return BUS_TOKEN_INVALID;
 		}
 
 	case 'S':
@@ -117,6 +120,8 @@ static enum bus_token_type bus_lexer_next_token_type(struct bus_lexer *lexer,
 		default:
 			return BUS_TOKEN_INVALID;
 		}
+		break;
+				
 
 	case 'T':
 		return BUS_LEXER_MATCH_TOKEN(lexer, "OWARDS",
