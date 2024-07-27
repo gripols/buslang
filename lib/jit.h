@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+struct bus_buffer;
+
 enum bus_error bus_comp_jit(FILE *src, struct bus_buffer *dst,
 			    struct bus_token *last_token_dst);
 

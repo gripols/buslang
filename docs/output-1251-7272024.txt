@@ -1,0 +1,27 @@
+src/context.c: In function ‘bus_context_init’:
+src/context.c:7:44: warning: ISO C does not support omitting parameter
+names in function definitions before C23 [-Wpedantic]
+    7 |                       FILE *in, FILE *out, struct bus_context *)
+      |                                            ^~~~~~~~~~~~~~~~~~~~
+Compiling src/error.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/error.c -o src/error.o
+Compiling src/jit_comp.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/jit_comp.c -o
+src/jit_comp.o
+Compiling src/jit_run.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/jit_run.c -o src/jit_run.o
+In file included from src/jit_run.c:3:
+src/../lib/jit.h:9:47: warning: ‘struct bus_buffer’ declared inside
+parameter list will not be visible outside of this definition or
+declaration
+    9 | enum bus_error bus_comp_jit(FILE *src, struct bus_buffer *dst,
+      |                                               ^~~~~~~~~~
+Compiling src/main.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/main.c -o src/main.o
+Compiling src/lexer.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/lexer.c -o src/lexer.o
+Compiling src/token.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g -c src/token.c -o src/token.o
+Linking busl
+gcc src/buffer.o src/context.o src/error.o src/jit_comp.o src/jit_run.o
+src/main.o src/lexer.o src/token.o -o busl

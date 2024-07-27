@@ -2,9 +2,10 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <sys/cdefs.h>
 
 void bus_context_init(struct bus_context *ctx, const uint8_t *program,
-		      FILE *in, FILE *out, struct bus_context *)
+		      FILE *in, FILE *out, struct bus_context *ip __attribute__((unused))) 
 {
 	ctx->ip = program;
 	ctx->dp = ctx->memory;
