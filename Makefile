@@ -5,10 +5,10 @@ CC = gcc
 CFLAGS = -Ilib -Wall -Wpedantic -Wextra -g
 
 # Source files
-SRC = src/buffer.c src/context.c src/error.c src/jit_comp.c src/jit_run.c src/main.c src/lexer.c src/token.c
+SRC = src/buffer.c src/context.c src/error.c src/jit_comp.c src/jit_run.c src/main.c src/lexer.c src/token.c cmd/hit-and-run.c
 
 # Header files
-HEADERS = lib/buffer.h lib/context.h lib/error.h lib/jit.h lib/lexer.h lib/target.h lib/token.h
+HEADERS = cmd/log.h lib/buffer.h lib/context.h lib/error.h lib/jit.h lib/lexer.h lib/target.h lib/token.h cmd/hit-and-run.h
 
 # Object files
 OBJ = $(SRC:.c=.o)
