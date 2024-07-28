@@ -1,6 +1,5 @@
 // Basic interpreter written in C
 // rest of this repo is this but fancier.
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

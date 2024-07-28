@@ -31,9 +31,9 @@ enum bus_error bus_buffer_write(struct bus_buffer *buffer, const void *data,
 		size_t prev_cap = buffer->cap;
 		buffer->cap *=
 			(buffer->cap + n - 1) / buffer->cap * BUFFER_GROW_FAC;
-		unsigned int *new_data = mmap(
-			NULL, buffer->cap, PROT_READ | PROT_WRITE | PROT_EXEC,
-			MAP_PRIVATE | MAP_ANON, -1, 0);
+		uint8_t *new_data = mmap(NULL, buffer->cap,
+					 PROT_READ | PROT_WRITE | PROT_EXEC,
+					 MAP_PRIVATE | MAP_ANON, -1, 0);
 
 		if (new_data == MAP_FAILED)
 			return BUS_ERROR_MALLOC;

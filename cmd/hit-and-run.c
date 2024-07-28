@@ -29,8 +29,7 @@ int comp(enum bus_target targ, FILE *src, struct bus_buffer *dst)
 
 	if (error != BUS_ERROR_SUCCESS) {
 		printf("compiler error: %s @ line %zu, col %zu\n",
-			bus_strerror(error), last_token.line,
-			last_token.column);
+		       bus_strerror(error), last_token.line, last_token.column);
 		return EXIT_FAILURE;
 	}
 
@@ -46,14 +45,14 @@ int run(enum bus_target target, const struct bus_buffer *program)
 	if (error != BUS_ERROR_SUCCESS) {
 		// WHAT A HORRIBLE SOLUTION :DDDDDDDD
 		printf("run-time error: %s at %p (program + %p)\n",
-			bus_strerror(error), (void *)ctx.ip,
-			(void *)(ctx.ip - ctx.program));
+		       bus_strerror(error), (void *)ctx.ip,
+		       (void *)(ctx.ip - ctx.program));
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;
 }
 
-int HIT_AND_RUN(const char *filename)
+int HIT_AND_RUN()
 {
 	bool valid;
 	FILE *src = fopen(const char *filename)
@@ -78,9 +77,9 @@ int HIT_AND_RUN(const char *filename)
 
 	struct bus_buffer program;
 
-	if (error != BUS_ERROR_SUCCESS) {
+	if (perror != BUS_ERROR_SUCCESS) {
 		printf("failed to init program buffer: %s\n",
-			bus_strerror(error));
+		       bus_strerror(perror));
 		fclose(src);
 		return EXIT_FAILURE;
 	}
