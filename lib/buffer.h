@@ -10,7 +10,7 @@
 struct bus_buffer {
 	size_t size;
 	size_t cap;
-	unsigned int *data;
+	uint8_t *data;
 };
 
 // Inits given buffer to store executable code.
@@ -30,8 +30,8 @@ static inline enum bus_error bus_buffer_write_u8(struct bus_buffer *buffer,
 }
 
 // Writes the given `size_t` val at end of given buffer.
-static inline enum bus_error bus_buffer_write_size(struct bus_buffer
-						   *buffer, size_t value)
+static inline enum bus_error bus_buffer_write_size(struct bus_buffer *buffer,
+						   size_t value)
 {
 	return bus_buffer_write(buffer, &value, sizeof(value));
 }
