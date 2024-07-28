@@ -1,0 +1,121 @@
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/buffer.o src/buffer.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/context.o
+src/context.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/error.o src/error.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/jit_comp.o
+src/jit_comp.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/jit_run.o
+src/jit_run.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/main.o src/main.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/lexer.o src/lexer.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o src/token.o src/token.c
+gcc -Ilib -Wall -Wpedantic -Wextra -g   -c -o cmd/hit-and-run.o
+cmd/hit-and-run.c
+In file included from cmd/hit-and-run.c:4:
+cmd/../lib/target.h:20:46: error: unknown type name ‘bus_context’
+   20 | enum bus_error bus_run(enum bus_target targ, bus_context *ctx);
+      |                                              ^~~~~~~~~~~
+cmd/hit-and-run.c: In function ‘comp’:
+cmd/hit-and-run.c:28:57: error: passing argument 4 of ‘bus_comp’ from
+incompatible pointer type [-Wincompatible-pointer-types]
+   28 |         enum bus_error error = bus_comp(targ, src, dst,
+&last_token);
+      |                                                        
+^~~~~~~~~~~
+      |                                                         |
+      |                                                         struct
+bus_token *
+cmd/../lib/target.h:18:44: note: expected ‘struct bus_buffer *’ but
+argument is of type ‘struct bus_token *’
+   18 |                         struct bus_buffer *last_token_dst);
+      |                         ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~
+cmd/hit-and-run.c: In function ‘run’:
+cmd/hit-and-run.c:43:39: error: passing argument 2 of ‘bus_context_init’
+from incompatible pointer type [-Wincompatible-pointer-types]
+   43 |         bus_context_init(&ctx, program->data, stdin, stdout, 0);
+      |                                ~~~~~~~^~~~~~
+      |                                       |
+      |                                       unsigned int *
+In file included from cmd/hit-and-run.c:2:
+cmd/../lib/context.h:18:63: note: expected ‘const uint8_t *’ {aka ‘const
+unsigned char *’} but argument is of type ‘unsigned int *’
+   18 | void bus_context_init(struct bus_context *ctx, const uint8_t
+*program,
+      |                                               
+~~~~~~~~~~~~~~~^~~~~~~
+cmd/hit-and-run.c:44:32: error: implicit declaration of function
+‘bus_run’ [-Wimplicit-function-declaration]
+   44 |         enum bus_error error = bus_run(target, &ctx);
+      |                                ^~~~~~~
+cmd/hit-and-run.c: In function ‘INTERP’:
+cmd/hit-and-run.c:59:27: error: expected expression before ‘const’
+   59 |         FILE *src = fopen(const char *filename)
+      |                           ^~~~~
+cmd/hit-and-run.c:59:21: error: too few arguments to function ‘fopen’
+   59 |         FILE *src = fopen(const char *filename)
+      |                     ^~~~~
+In file included from cmd/../lib/context.h:5:
+/usr/include/stdio.h:264:14: note: declared here
+  264 | extern FILE *fopen (const char *__restrict __filename,
+      |              ^~~~~
+cmd/hit-and-run.c:60:9: error: expected ‘,’ or ‘;’ before ‘{’ token
+   60 |         {
+      |         ^
+cmd/hit-and-run.c:23:25: error: ‘LOG_ERR’ undeclared (first use in this
+function)
+   23 |         fprintf(stderr, LOG_ERR "error: " C_RES format,
+__VA_ARGS__)
+      |                         ^~~~~~~
+cmd/hit-and-run.c:67:17: note: in expansion of macro ‘LOG_ERR’
+   67 |                 LOG_ERR("failed to open source file: %s\n",
+sterror(errno));
+      |                 ^~~~~~~
+cmd/hit-and-run.c:23:25: note: each undeclared identifier is reported
+only once for each function it appears in
+   23 |         fprintf(stderr, LOG_ERR "error: " C_RES format,
+__VA_ARGS__)
+      |                         ^~~~~~~
+cmd/hit-and-run.c:67:17: note: in expansion of macro ‘LOG_ERR’
+   67 |                 LOG_ERR("failed to open source file: %s\n",
+sterror(errno));
+      |                 ^~~~~~~
+cmd/hit-and-run.c:23:33: error: expected ‘)’ before string constant
+   23 |         fprintf(stderr, LOG_ERR "error: " C_RES format,
+__VA_ARGS__)
+      |                ~                ^~~~~~~~~
+cmd/hit-and-run.c:67:17: note: in expansion of macro ‘LOG_ERR’
+   67 |                 LOG_ERR("failed to open source file: %s\n",
+sterror(errno));
+      |                 ^~~~~~~
+cmd/hit-and-run.c:23:33: error: expected ‘)’ before string constant
+   23 |         fprintf(stderr, LOG_ERR "error: " C_RES format,
+__VA_ARGS__)
+      |                ~                ^~~~~~~~~
+cmd/hit-and-run.c:72:17: note: in expansion of macro ‘LOG_ERR’
+   72 |                 LOG_ERR("Invalid bus program");
+      |                 ^~~~~~~
+cmd/hit-and-run.c:19:21: error: incompatible types when initializing
+type ‘enum bus_target’ using type ‘int (*)(const char *)’
+   19 | #define HIT_AND_RUN INTERP
+      |                     ^~~~~~
+cmd/hit-and-run.c:76:32: note: in expansion of macro ‘HIT_AND_RUN’
+   76 |         enum bus_target targ = HIT_AND_RUN; // ???
+      |                                ^~~~~~~~~~~
+cmd/hit-and-run.c:77:28: error: implicit declaration of function
+‘targ_is_jit’ [-Wimplicit-function-declaration]
+   77 |         bool is_jit_targ = targ_is_jit(targ);
+      |                            ^~~~~~~~~~~
+cmd/hit-and-run.c:81:13: error: ‘error’ undeclared (first use in this
+function); did you mean ‘perror’?
+   81 |         if (error != BUS_ERROR_SUCCESS) {
+      |             ^~~~~
+      |             perror
+cmd/hit-and-run.c:77:14: warning: unused variable ‘is_jit_targ’
+[-Wunused-variable]
+   77 |         bool is_jit_targ = targ_is_jit(targ);
+      |              ^~~~~~~~~~~
+cmd/hit-and-run.c:56:29: warning: unused parameter ‘filename’
+[-Wunused-parameter]
+   56 | int HIT_AND_RUN(const char *filename)
+      |                 ~~~~~~~~~~~~^~~~~~~~
+make: *** [<builtin>: cmd/hit-and-run.o] Error 1
