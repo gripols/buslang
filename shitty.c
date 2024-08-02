@@ -1,5 +1,7 @@
-// Basic interpreter written in C
-// rest of this repo is this but fancier.
+// horrible C interpreter
+// for 102 buslang. If you want
+// something thats actually good
+// see good-int.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
